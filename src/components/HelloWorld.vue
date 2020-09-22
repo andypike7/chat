@@ -69,19 +69,20 @@
   export default {
     name: 'HelloWorld',
     data: () => ({
-      sendDisabled: false,
       settings: {},
-      messages: [],
       rooms: [],
+      messages: [],
       currentRoom: null,
       isSheetVisible: false,
       sheetText: null,
       selectedRoom: null,
+      sendDisabled: false,
     }),
 
     beforeMounted() {
       console.clear();
     },
+
     async mounted() {
       await this.getSettings();
       await this.getRooms();
