@@ -18,27 +18,83 @@
         </v-sheet>
       </v-bottom-sheet>
       <v-col class="mb-4">
+
+        <div v-if="rooms.length === 0">
+          Active rooms: {{ rooms.length }}.
+          CurrentRoom: {{ currentRoom }}
+          <v-select
+            label="CurrentRoom"
+            outlined
+            append-icon="mdi-plus"
+            clear-icon="mdi-minus"
+            :items="rooms"
+            :value="0"
+            @change="changeRoom"
+            @click:append="addRoom"
+          />
+        </div>
+
+        <div v-else>
+          <div class="mb-5">
+            No active rooms now.
+            You may create a new one.
+          </div>
+          <v-text-field
+            label="New room name"
+            outlined
+            dense
+            clearable
+            prepend-icon="mdi-home-outline"
+            append-icon="mdi-cancel"
+            :counter="settings.max_room_title_length"
+            @click:append="cancelNewRoomCreation"
+          />
+          <v-textarea
+            label="Your message"
+            outlined
+            clearable
+            rows="1"
+            auto-grow
+            :counter="settings.max_message_length"
+            prepend-icon="mdi-message-text-outline"
+          />
+          <div class="text-center my-0">
+            <v-btn
+              color="success"
+              v-text="'Create a room'"
+              @click="isSheetVisible = !isSheetVisible"
+            />
+            <v-btn
+              color="accent"
+              v-text="'Cancel'"
+              class="mx-4"
+              @click="isSheetVisible = !isSheetVisible"
+            />
+          </div>
+        </div>
+
+        <hr />
+        <hr />
+        <hr />
+
+        STATE: {{ state }}
+        <hr />
+        <hr />
+        <hr />
         <!-- <h1-- class="display-2 font-weight-bold mb-3">
           Welcome to Tada-Chat
         </h1-->
         Settings:
         {{ settings }}
-        <hr>
+        <hr />
         Rooms:
         {{ rooms }}
-        <hr>
+        <hr />
         Messages:
         {{ messages }}
-        <hr>
+        <hr />
 
         <!-- Комнаты:
-        <v-select
-          dark
-          filled
-          :items="rooms"
-          value="Second"
-          @change="changeRoom"
-        /> -->
         <v-textarea
           label="Введите сообщение"
           auto-grow
@@ -54,6 +110,7 @@
         >
           Send a Message
         </v-btn>
+        -->
 
       </v-col>
 
@@ -66,6 +123,10 @@
 
   const apiUrl = 'https://nane.tada.team/api';
 
+  const HAVE_NOTHING = 0;
+  const HAVE_SETTINGS = 0;
+  const HAVE_ROOMS = 1;
+
   export default {
     name: 'HelloWorld',
     data: () => ({
@@ -77,6 +138,7 @@
       sheetText: null,
       selectedRoom: null,
       sendDisabled: false,
+      state: HAVE_NOTHING,
     }),
 
     beforeMounted() {
@@ -88,12 +150,12 @@
       await this.getRooms();
 
       if (this.rooms.length === 0) {
-        alert('we have no rooms!');
+        // alert('we have no rooms!');
       }
       else {
         console.log('*** GET:', this.rooms[0].name);
-        this.refreshARoom(this.rooms[0].name);
-        alert(`we have ${this.rooms.length} room(s)!`);
+        this.refreshRoom(this.rooms[0].name);
+        // alert(`we have ${this.rooms.length} room(s)!`);
       }
       this.getMessages();
     },
@@ -106,6 +168,7 @@
         await axios.get(`${apiUrl}/settings`)
           .then(response => {
             that.settings = response.data.result;
+            this.state = HAVE_SETTINGS;
           })
           .catch(() => {
             this.sheetText = 'Cannot get the chat settings.';
@@ -119,16 +182,22 @@
           .then(response => {
             console.log('*** Rooms:', response.data.result)
             that.rooms = response.data.result;
+            this.state = HAVE_ROOMS;
           })
           .catch(() => {
             this.sheetText = 'Cannot get the list of rooms.';
             this.isSheetVisible = true;
           });
       },
-      async refreshARoom(roomName) {
-        alert('refreshARoom: ' + roomName);
+      async refreshRoom(roomName) {
         this.currentRoom = roomName;
-        console.log(`currentRoom = ${roomName}`);
+      },
+
+      cancelNewRoomCreation() {
+        alert('cancelNewRoomCreation');
+      },
+      addRoom() {
+        alert('addRoom');
       },
       sendMessage() {
         this.sendDisabled = true;
