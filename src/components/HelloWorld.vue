@@ -1,7 +1,10 @@
 <template>
   <v-container>
     <v-row class="text-center">
-      <v-bottom-sheet v-model="isSheetVisible">
+      <v-bottom-sheet
+        v-model="isSheetVisible"
+        persistent
+      >
         <v-sheet class="text-center">
           <div style="height:20px" />
           <div>{{ sheetText }}</div>
@@ -10,7 +13,7 @@
               small
               color="error"
               class="my-2 mb-6"
-              @click="isSheetVisible = !isSheetVisible"
+              @click="retryLoading"
             >
               Retry
             </v-btn>
@@ -88,10 +91,6 @@
         <hr />
         <hr />
 
-        STATE: {{ state }}
-        <hr />
-        <hr />
-        <hr />
         <!-- <h1-- class="display-2 font-weight-bold mb-3">
           Welcome to Tada-Chat
         </h1-->
@@ -135,8 +134,8 @@
   const apiUrl = 'https://nane.tada.team/api';
 
   const HAVE_NOTHING = 0;
-  const HAVE_SETTINGS = 0;
-  const HAVE_ROOMS = 1;
+  const HAVE_SETTINGS = 1;
+  const HAVE_ROOMS = 2;
 
   const EMULATE_SLOW_CONNECTION = true;
 
@@ -159,16 +158,51 @@
       state: HAVE_NOTHING,
     }),
 
-    beforeMounted() {
-      console.clear();
-    },
-
     async mounted() {
-      // don't go futher when cannot get settings
+      console.clear();
+
+      // don't go futher if we can't get the settings
       while (!await this.getSettings()) ;
+      // state: HAVE_SETTINGS
+      // this.settings = {
+      //   "max_message_length": 10500,
+      //   "max_room_title_length": 50,
+      //   "max_username_length": 50,
+      //   "uptime": 1224778297317
+      // }
+
+      // don't go futher if we can't get the rooms
+      while (!await this.getRooms()) ;
+      // state: HAVE_ROOMS
+      // this.result = [
+      //   {
+      //     "name": "kozma",
+      //     "last_message": {
+      //       "room": "kozma",
+      //       "created": "2020-09-26T08:50:29.361895954Z",
+      //       "sender": {
+      //         "username": "Козьма Прутков",
+      //       },
+      //       "text": "Не робей перед врагом: лютейший враг человека - он сам."
+      //     }
+      //   },
+      //   {
+      //     "name": "test",
+      //     "last_message": {
+      //       "room": "test",
+      //       "created": "2020-09-26T08:49:13.379184978Z",
+      //       "sender": {
+      //         "username": "Аноним"
+      //       },
+      //       "text": "6"
+      //     }
+      //   }
+      // ]
+
+
+      this.initializeRooms();
 
       // this.loadingDataSubject = 'Rooms';
-      // await this.getRooms();
 
       // if (this.rooms.length === 0) {
       //   // alert('we have no rooms!');
@@ -193,6 +227,10 @@
       },
     },
     methods: {
+      initializeRooms() {
+        this.loadingMainDataState = null;
+        console.log('*** initializeRooms');
+      },
       sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
       },
@@ -204,41 +242,64 @@
         this.isLoadingMainData = true;
         this.isAnErrorWhileLoadingMainData = false;
 
-        const that = this;
-
         if (EMULATE_SLOW_CONNECTION) {
-          await this.sleep(5000);
+          await this.sleep(1000);
         }
 
-        await axios.get(`${apiUrl}/setting2s`)
+        const that = this;
+
+        await axios.get(`${apiUrl}/settings`)
           .then(response => {
             that.settings = response.data.result;
             this.state = HAVE_SETTINGS;
+
+            console.log('*** SETTINGS:', that.settings);
           })
           .catch(() => {
-            this.sheetText = 'Cannot get the chat settings.';
+            this.sheetText = 'Cannot load the chat settings.';
             this.isSheetVisible = true;
 
-            this.loadingMainDataState = 'Cannot load settings';
+            this.loadingMainDataState = 'Cannot load the chat settings.';
             this.isLoadingMainData = false;
             this.isAnErrorWhileLoadingMainData = true;
         });
 
         return this.state === HAVE_SETTINGS;
       },
+      retryLoading() {
+        this.isSheetVisible = false;
+        this.getSettings();
+      },
       async getRooms() {
+
+        this.isSheetVisible = false;
+
+        this.loadingMainDataState = 'Loading rooms...';
+        this.isLoadingMainData = true;
+        this.isAnErrorWhileLoadingMainData = false;
+
+        if (EMULATE_SLOW_CONNECTION) {
+          await this.sleep(1000);
+        }
+
         const that = this;
 
         await axios.get(`${apiUrl}/rooms`)
           .then(response => {
-            console.log('*** Rooms:', response.data.result)
+            console.log('*** ROOMS:', response.data.result)
             that.rooms = response.data.result;
             this.state = HAVE_ROOMS;
           })
           .catch(() => {
-            this.sheetText = 'Cannot get the list of rooms.';
+            this.sheetText = 'Cannot get the rooms.';
             this.isSheetVisible = true;
+
+            this.loadingMainDataState = 'Cannot load the rooms.';
+            this.isLoadingMainData = false;
+            this.isAnErrorWhileLoadingMainData = true;
           });
+
+        return this.state === HAVE_ROOMS;
       },
       async refreshRoom(roomName) {
         this.currentRoom = roomName;
