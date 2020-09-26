@@ -18,8 +18,19 @@
         </v-sheet>
       </v-bottom-sheet>
       <v-col class="mb-4">
+        <div v-if="loadingMainDataState !== null">
+          <v-text-field
+            :disabled="isLoadingMainData"
+            :label="loadingMainDataLabel"
+            :prepend-icon="loadingMainDataIcon"
+            :value="loadingMainDataState"
+            color="info"
+            outlined
+          >
+          </v-text-field>
+        </div>
 
-        <div v-if="rooms.length === 0">
+        <div v-else-if="rooms.length === 0">
           Active rooms: {{ rooms.length }}.
           CurrentRoom: {{ currentRoom }}
           <v-select
@@ -127,11 +138,18 @@
   const HAVE_SETTINGS = 0;
   const HAVE_ROOMS = 1;
 
+  const EMULATE_SLOW_CONNECTION = true;
+
   export default {
     name: 'HelloWorld',
     data: () => ({
+      // main data: settings and rooms
+      loadingMainDataState: null,
+      isLoadingMainData: false,
+      isAnErrorWhileLoadingMainData: false,
       settings: {},
       rooms: [],
+
       messages: [],
       currentRoom: null,
       isSheetVisible: false,
@@ -146,26 +164,53 @@
     },
 
     async mounted() {
-      await this.getSettings();
-      await this.getRooms();
+      // don't go futher when cannot get settings
+      while (!await this.getSettings()) ;
 
-      if (this.rooms.length === 0) {
-        // alert('we have no rooms!');
-      }
-      else {
-        console.log('*** GET:', this.rooms[0].name);
-        this.refreshRoom(this.rooms[0].name);
-        // alert(`we have ${this.rooms.length} room(s)!`);
-      }
-      this.getMessages();
+      // this.loadingDataSubject = 'Rooms';
+      // await this.getRooms();
+
+      // if (this.rooms.length === 0) {
+      //   // alert('we have no rooms!');
+      // }
+      // else {
+      //   console.log('*** GET:', this.rooms[0].name);
+      //   this.refreshRoom(this.rooms[0].name);
+      //   // alert(`we have ${this.rooms.length} room(s)!`);
+      // }
+      // this.getMessages();
+    },
+    computed: {
+      loadingMainDataIcon() {
+        return this.isAnErrorWhileLoadingMainData
+          ? 'mdi-emoticon-sad'
+          : 'mdi-loading mdi-spin';
+      },
+      loadingMainDataLabel() {
+        return this.isAnErrorWhileLoadingMainData
+          ? 'An error occured'
+          : 'Progress';
+      },
     },
     methods: {
+      sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      },
       async getSettings() {
-        const that = this;
-
+        this.state = HAVE_NOTHING;
         this.isSheetVisible = false;
 
-        await axios.get(`${apiUrl}/settings`)
+        this.loadingMainDataState = 'Loading settings...';
+        this.isLoadingMainData = true;
+        this.isAnErrorWhileLoadingMainData = false;
+
+        const that = this;
+
+        if (EMULATE_SLOW_CONNECTION) {
+          await this.sleep(5000);
+        }
+
+        await axios.get(`${apiUrl}/setting2s`)
           .then(response => {
             that.settings = response.data.result;
             this.state = HAVE_SETTINGS;
@@ -173,7 +218,13 @@
           .catch(() => {
             this.sheetText = 'Cannot get the chat settings.';
             this.isSheetVisible = true;
-          });
+
+            this.loadingMainDataState = 'Cannot load settings';
+            this.isLoadingMainData = false;
+            this.isAnErrorWhileLoadingMainData = true;
+        });
+
+        return this.state === HAVE_SETTINGS;
       },
       async getRooms() {
         const that = this;
