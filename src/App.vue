@@ -13,14 +13,21 @@
 
       <!-- <span class="mr-2">1 active room(s)</span> -->
 
-      <v-btn
+      <span v-if="getUserName !== null">
+        Hello, <b>{{ getUserName }}</b>!
+      </span>
+      <span v-else>
+        You are <b>anonymous</b>
+      </span>
+
+      <!-- <v-btn
         href="https://github.com/vuetifyjs/vuetify/releases/latest"
         target="_blank"
         text
       >
         <span class="mr-2">Latest Release</span>
         <v-icon>mdi-open-in-new</v-icon>
-      </v-btn>
+      </v-btn> -->
     </v-app-bar>
 
     <v-main>
@@ -31,6 +38,7 @@
 
 <script>
 import HelloWorld from './components/HelloWorld';
+import user from '@/utils/user';
 
 export default {
   name: 'App',
@@ -42,5 +50,11 @@ export default {
   data: () => ({
     //
   }),
+
+  computed: {
+    getUserName() {
+      return user.getName();
+    },
+  },
 };
 </script>

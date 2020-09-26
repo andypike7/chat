@@ -32,27 +32,43 @@
           >
           </v-text-field>
         </div>
-
-        <div v-else-if="rooms.length === 0">
-          Active rooms: {{ rooms.length }}.
-          CurrentRoom: {{ currentRoom }}
+        <div v-else-if="rooms.length !== 0">
+          <div class="mb-5">
+            <span v-if="rooms.length">
+              Active rooms: <b>{{ rooms.length }}</b>.
+              CurrentRoom: <b>{{ currentRoom }}</b>.
+            </span>
+            <span v-else>
+              No active rooms now. You may create a new one.
+            </span>
+          </div>
           <v-select
-            label="CurrentRoom"
+            v-if="!isNewRoomCreation"
+            label="Room"
             outlined
-            append-icon="mdi-plus"
+            prepend-icon="mdi-home-outline"
             clear-icon="mdi-minus"
             :items="rooms"
-            :value="0"
-            @change="changeRoom"
-            @click:append="addRoom"
-          />
+            :value="currentRoom"
+            @change="refreshRoom"
+          >
+            <template v-slot:append-outer>
+              <v-tooltip bottom>
+                <template v-slot:activator="{ on }">
+                  <v-icon
+                    v-on="on"
+                    @click="addRoom"
+                  >
+                    mdi-plus-circle-outline
+                  </v-icon>
+                </template>
+                <span>Create a new room</span>
+              </v-tooltip>
+            </template>
+          </v-select>
         </div>
 
-        <div v-else>
-          <div class="mb-5">
-            No active rooms now.
-            You may create a new one.
-          </div>
+        <div v-if="isNewRoomCreation">
           <v-text-field
             label="New room name"
             outlined
@@ -63,6 +79,19 @@
             :counter="settings.max_room_title_length"
             @click:append="cancelNewRoomCreation"
           />
+
+          <v-text-field
+            v-if="userIsAnonimous"
+            label="Your name"
+            outlined
+            dense
+            clearable
+            prepend-icon="mdi-account-outline"
+            append-icon="mdi-cancel"
+            :counter="settings.max_username_length"
+            @click:append="cancelNewRoomCreation"
+          />
+
           <v-textarea
             label="Your message"
             outlined
@@ -72,17 +101,20 @@
             :counter="settings.max_message_length"
             prepend-icon="mdi-message-text-outline"
           />
-          <div class="text-center my-0">
+          <div
+            v-if="isNewRoomCreation"
+            class="text-center my-0"
+          >
             <v-btn
               color="success"
+              @click="clickRoomCreation"
               v-text="'Create a room'"
-              @click="isSheetVisible = !isSheetVisible"
             />
             <v-btn
               color="accent"
-              v-text="'Cancel'"
               class="mx-4"
-              @click="isSheetVisible = !isSheetVisible"
+              @click="cancelRoomCreation"
+              v-text="'Cancel'"
             />
           </div>
         </div>
@@ -94,11 +126,11 @@
         <!-- <h1-- class="display-2 font-weight-bold mb-3">
           Welcome to Tada-Chat
         </h1-->
-        Settings:
+        <!-- Settings:
         {{ settings }}
         <hr />
         Rooms:
-        {{ rooms }}
+        {{ rooms }} -->
         <hr />
         Messages:
         {{ messages }}
@@ -130,6 +162,7 @@
 
 <script>
   import axios from 'axios';
+  import user from '@/utils/user';
 
   const apiUrl = 'https://nane.tada.team/api';
 
@@ -147,10 +180,12 @@
       isLoadingMainData: false,
       isAnErrorWhileLoadingMainData: false,
       settings: {},
+
       rooms: [],
+      currentRoom: null,
+      isNewRoomCreation: false,
 
       messages: [],
-      currentRoom: null,
       isSheetVisible: false,
       sheetText: null,
       selectedRoom: null,
@@ -160,6 +195,7 @@
 
     async mounted() {
       console.clear();
+      console.log('*** USER:', user.getName());
 
       // don't go futher if we can't get the settings
       while (!await this.getSettings()) ;
@@ -199,20 +235,7 @@
       //   }
       // ]
 
-
       this.initializeRooms();
-
-      // this.loadingDataSubject = 'Rooms';
-
-      // if (this.rooms.length === 0) {
-      //   // alert('we have no rooms!');
-      // }
-      // else {
-      //   console.log('*** GET:', this.rooms[0].name);
-      //   this.refreshRoom(this.rooms[0].name);
-      //   // alert(`we have ${this.rooms.length} room(s)!`);
-      // }
-      // this.getMessages();
     },
     computed: {
       loadingMainDataIcon() {
@@ -225,12 +248,37 @@
           ? 'An error occured'
           : 'Progress';
       },
+      userIsAnonimous() {
+        return user.getName() === null;
+      },
     },
     methods: {
-      initializeRooms() {
-        this.loadingMainDataState = null;
-        console.log('*** initializeRooms');
+      addRoom() {
+        console.log('*** addRoom');
+        this.isNewRoomCreation = true;
       },
+      clickRoomCreation() {
+        console.log('*** clickRoomCreation');
+      },
+      cancelRoomCreation() {
+        console.log('*** cancelRoomCreation');
+        this.isNewRoomCreation = false;
+      },
+      initializeRooms() {
+        if (this.rooms.length === 0) {
+          console.log('*** We have no rooms!');
+        }
+        else {
+          this.rooms = this.rooms.map((item) => item.name);
+          this.refreshRoom(this.rooms[0]);
+        }
+      },
+      /* *** */
+      refreshRoom(roomName) {
+        this.currentRoom = roomName;
+        console.log('*** currentRoom:', this.currentRoom);
+      },
+      /* *** */
       sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
       },
@@ -252,8 +300,6 @@
           .then(response => {
             that.settings = response.data.result;
             this.state = HAVE_SETTINGS;
-
-            console.log('*** SETTINGS:', that.settings);
           })
           .catch(() => {
             this.sheetText = 'Cannot load the chat settings.';
@@ -271,9 +317,7 @@
         this.getSettings();
       },
       async getRooms() {
-
         this.isSheetVisible = false;
-
         this.loadingMainDataState = 'Loading rooms...';
         this.isLoadingMainData = true;
         this.isAnErrorWhileLoadingMainData = false;
@@ -286,14 +330,13 @@
 
         await axios.get(`${apiUrl}/rooms`)
           .then(response => {
-            console.log('*** ROOMS:', response.data.result)
             that.rooms = response.data.result;
+            this.loadingMainDataState = null;
             this.state = HAVE_ROOMS;
           })
           .catch(() => {
             this.sheetText = 'Cannot get the rooms.';
             this.isSheetVisible = true;
-
             this.loadingMainDataState = 'Cannot load the rooms.';
             this.isLoadingMainData = false;
             this.isAnErrorWhileLoadingMainData = true;
@@ -301,24 +344,15 @@
 
         return this.state === HAVE_ROOMS;
       },
-      async refreshRoom(roomName) {
-        this.currentRoom = roomName;
-      },
 
       cancelNewRoomCreation() {
         alert('cancelNewRoomCreation');
-      },
-      addRoom() {
-        alert('addRoom');
       },
       sendMessage() {
         this.sendDisabled = true;
         setTimeout(() => {
           this.sendDisabled = false;
         }, 1000);
-      },
-      changeRoom() {
-        alert('changeRoom');
       },
       getMessages() {
         /*
