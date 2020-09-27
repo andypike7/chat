@@ -67,7 +67,39 @@
             </template>
           </v-select>
         </div>
-
+        <div
+          v-if="messages.length && !isNewRoomCreation"
+        >
+          <div
+            v-for="(message, key) in messages"
+            :key="key"
+          >
+            <v-card class="text-left mb-6">
+              <v-card-title>
+                {{ message.sender.username }}
+              </v-card-title>
+              <v-card-text style="padding-bottom:0">
+                {{ message.text }}
+              </v-card-text>
+              <v-card-subtitle class="my-0">
+                <div style="color:gray;font-size:12px">
+                  {{
+                    new Date(message.created)
+                      .toLocaleString('ru', {
+                        weekday: 'long',
+                        day:   '2-digit',
+                        month: 'short',
+                        year:  'numeric',
+                        hour:  '2-digit',
+                        minute:  '2-digit',
+                        second:  '2-digit',
+                      })
+                  }}
+                </div>
+              </v-card-subtitle>
+            </v-card>
+          </div>
+        </div>
         <div v-if="isNewRoomCreation">
           <v-text-field
             label="New room name"
@@ -75,87 +107,60 @@
             dense
             clearable
             prepend-icon="mdi-home-outline"
-            append-icon="mdi-cancel"
             :counter="settings.max_room_title_length"
             @click:append="cancelNewRoomCreation"
           />
-
-          <v-text-field
-            v-if="userIsAnonimous"
-            label="Your name"
-            outlined
-            dense
-            clearable
-            prepend-icon="mdi-account-outline"
-            append-icon="mdi-cancel"
-            :counter="settings.max_username_length"
-            @click:append="cancelNewRoomCreation"
-          />
-
-          <v-textarea
-            label="Your message"
-            outlined
-            clearable
-            rows="1"
-            auto-grow
-            :counter="settings.max_message_length"
-            prepend-icon="mdi-message-text-outline"
-          />
-          <div
-            v-if="isNewRoomCreation"
-            class="text-center my-0"
-          >
-            <v-btn
-              color="success"
-              @click="clickRoomCreation"
-              v-text="'Create a room'"
-            />
-            <v-btn
-              color="accent"
-              class="mx-4"
-              @click="cancelRoomCreation"
-              v-text="'Cancel'"
-            />
-          </div>
         </div>
-
-        <hr />
-        <hr />
-        <hr />
-
-        <!-- <h1-- class="display-2 font-weight-bold mb-3">
-          Welcome to Tada-Chat
-        </h1-->
-        <!-- Settings:
-        {{ settings }}
-        <hr />
-        Rooms:
-        {{ rooms }} -->
-        <hr />
-        Messages:
-        {{ messages }}
-        <hr />
-
-        <!-- Комнаты:
-        <v-textarea
-          label="Введите сообщение"
-          auto-grow
-          autofocus
+        <v-text-field
+          v-if="userIsAnonimous"
+          label="Your name"
+          outlined
+          dense
           clearable
-          background-color="#ddf"
+          multiline
+          prepend-icon="mdi-account-outline"
+          :counter="settings.max_username_length"
+          @click:append="cancelNewRoomCreation"
         />
 
-        <v-btn
-          :disabled="sendDisabled"
-          :loading="sendDisabled"
-          @click="sendMessage"
+        <v-textarea
+          label="Your message"
+          outlined
+          clearable
+          rows="1"
+          dense
+          auto-grow
+          prepend-icon="mdi-message-text-outline"
+          :counter="settings.max_message_length"
+        />
+        <div
+          v-if="isNewRoomCreation"
+          class="text-center my-0"
         >
-          Send a Message
-        </v-btn>
-        -->
-
+          <v-btn
+            color="success"
+            @click="clickRoomCreation"
+            v-text="'Create a room'"
+          />
+          <v-btn
+            color="accent"
+            class="mx-4"
+            @click="cancelRoomCreation"
+            v-text="'Cancel'"
+          />
+        </div>
+        <div
+          v-if="isSendAllowed"
+          class="text-center my-0"
+        >
+          <v-btn
+            color="accent"
+            class="mx-4"
+            @click="sendMessage"
+            v-text="'Send'"
+          />
+        </div>
       </v-col>
-
     </v-row>
   </v-container>
 </template>
@@ -186,6 +191,7 @@
       isNewRoomCreation: false,
 
       messages: [],
+      isSendAllowed: false,
       isSheetVisible: false,
       sheetText: null,
       selectedRoom: null,
@@ -195,7 +201,6 @@
 
     async mounted() {
       console.clear();
-      console.log('*** USER:', user.getName());
 
       // don't go futher if we can't get the settings
       while (!await this.getSettings()) ;
@@ -236,6 +241,8 @@
       // ]
 
       this.initializeRooms();
+
+      this.isSendAllowed = true;
     },
     computed: {
       loadingMainDataIcon() {
@@ -254,14 +261,11 @@
     },
     methods: {
       addRoom() {
-        console.log('*** addRoom');
         this.isNewRoomCreation = true;
       },
       clickRoomCreation() {
-        console.log('*** clickRoomCreation');
       },
       cancelRoomCreation() {
-        console.log('*** cancelRoomCreation');
         this.isNewRoomCreation = false;
       },
       initializeRooms() {
@@ -277,6 +281,7 @@
       refreshRoom(roomName) {
         this.currentRoom = roomName;
         console.log('*** currentRoom:', this.currentRoom);
+        this.getMessages();
       },
       /* *** */
       sleep(ms) {
@@ -354,12 +359,15 @@
           this.sendDisabled = false;
         }, 1000);
       },
-      getMessages() {
-        /*
+      async getMessages() {
+        console.log('*** getMessages');
         axios
           .get(`${apiUrl}/rooms/${this.currentRoom}/history`)
-          .then(response => console.log('*** RESP:', response))
-          .error(err => console.log('*** ERROR:', err));
+          .then(response => {
+            console.log('*** RESP:', response);
+            this.messages = response.data.result;
+          })
+          .catch(err => console.log('*** ERROR:', err));
         /*
         this.messages = {
           "result":[
