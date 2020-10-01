@@ -6,8 +6,8 @@
 </template>
 
 <script>
-import TheChat from './components/TheChat';
-import TheHeader from './components/TheHeader';
+import TheChat from '@/components/TheChat';
+import TheHeader from '@/components/TheHeader';
 
 export default {
   name: 'App',

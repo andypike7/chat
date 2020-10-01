@@ -32,6 +32,8 @@
 </template>
 
 <script>
+import { bus } from '@/main';
+
 export default {
   computed: {
     userName() {
@@ -41,6 +43,7 @@ export default {
   methods: {
     becomeAnonimous() {
       this.$store.commit('CLEAR_USERNAME');
+      bus.$emit('clearUserName'); // pass to TheChat
     },
   }
 }

@@ -101,66 +101,68 @@
               </v-card>
             </div>
           </div>
-          <div v-if="isNewRoomCreation">
+          <div v-if="displaySendForm">
+            <div v-if="isNewRoomCreation">
+              <v-text-field
+                label="New room name"
+                outlined
+                dense
+                clearable
+                prepend-icon="mdi-home-outline"
+                :counter="settings.max_room_title_length"
+                @click:append="cancelNewRoomCreation"
+              />
+            </div>
             <v-text-field
-              label="New room name"
+              v-if="displayUserName"
+              label="Your name"
+              v-model="userName"
               outlined
               dense
               clearable
-              prepend-icon="mdi-home-outline"
-              :counter="settings.max_room_title_length"
+              prepend-icon="mdi-account-outline"
+              :error-messages="userErrorMessage"
+              :counter="settings.max_username_length"
               @click:append="cancelNewRoomCreation"
             />
-          </div>
-          <v-text-field
-            v-if="userIsAnonimous"
-            label="Your name"
-            v-model="userName"
-            outlined
-            dense
-            clearable
-            prepend-icon="mdi-account-outline"
-            :error-messages="userErrorMessage"
-            :counter="settings.max_username_length"
-            @click:append="cancelNewRoomCreation"
-          />
-          <v-textarea
-            label="Your message"
-            outlined
-            clearable
-            rows="1"
-            dense
-            auto-grow
-            prepend-icon="mdi-message-text-outline"
-            :counter="settings.max_message_length"
-          />
-          <div
-            v-if="isNewRoomCreation"
-            class="text-center my-0"
-          >
-            <v-btn
-              color="success"
-              @click="clickRoomCreation"
-              v-text="'Create a room'"
+            <v-textarea
+              label="Your message"
+              outlined
+              clearable
+              rows="1"
+              dense
+              auto-grow
+              prepend-icon="mdi-message-text-outline"
+              :counter="settings.max_message_length"
             />
-            <v-btn
-              color="accent"
-              class="mx-4"
-              @click="cancelRoomCreation"
-              v-text="'Cancel'"
-            />
-          </div>
-          <div
-            v-if="isSendAllowed"
-            class="text-center my-0"
-          >
-            <v-btn
-              color="accent"
-              class="mx-4"
-              :disabled="sendDisabled"
-              @click="sendMessage"
-              v-text="'Send'"
-            />
+            <div
+              v-if="isNewRoomCreation"
+              class="text-center my-0"
+            >
+              <v-btn
+                color="success"
+                @click="clickRoomCreation"
+                v-text="'Create a room'"
+              />
+              <v-btn
+                color="accent"
+                class="mx-4"
+                @click="cancelRoomCreation"
+                v-text="'Cancel'"
+              />
+            </div>
+            <div
+              v-if="sendAllowed"
+              class="text-center my-0"
+            >
+              <v-btn
+                color="accent"
+                class="mx-4"
+                :disabled="sendDisabled"
+                @click="sendMessage"
+                v-text="'Send'"
+              />
+            </div>
           </div>
         </v-col>
       </v-row>
@@ -170,14 +172,9 @@
 
 <script>
   import axios from 'axios';
-  // import user from '@/utils/user';
+  import { bus } from '@/main';
 
   const apiUrl = 'https://nane.tada.team/api';
-
-  const HAVE_NOTHING = 0;
-  const HAVE_SETTINGS = 1;
-  const HAVE_ROOMS = 2;
-
   const EMULATE_SLOW_CONNECTION = true;
 
   export default {
@@ -194,64 +191,44 @@
       isNewRoomCreation: false,
       // messages
       messages: [],
-      isSendAllowed: false,
+      sendAllowed: false,
       isSheetVisible: false,
       sheetText: null,
       // common
-      state: HAVE_NOTHING,
+      displaySendForm: false,
       sendDisabled: false,
       // user
       userName: null,
+      displayUserName: true,
       userErrorMessage: null,
     }),
-
+    created() {
+      bus.$on('clearUserName', () => { // forced clearance from TheHeader
+        this.userName = null;
+        this.displayUserName = true;
+      });
+    },
     async mounted() {
-      // console.clear();
-
-      // this.userName = user.getName();
-
-
-      // don't go futher if we can't get the settings
       while (!await this.getSettings()) ;
-      // state: HAVE_SETTINGS
-      // this.settings = {
-      //   "max_message_length": 10500,
-      //   "max_room_title_length": 50,
-      //   "max_username_length": 50,
-      //   "uptime": 1224778297317
-      // }
-
-      // don't go futher if we can't get the rooms
       while (!await this.getRooms()) ;
-      // state: HAVE_ROOMS
-      // this.result = [
-      //   {
-      //     "name": "kozma",
-      //     "last_message": {
-      //       "room": "kozma",
-      //       "created": "2020-09-26T08:50:29.361895954Z",
-      //       "sender": {
-      //         "username": "Козьма Прутков",
-      //       },
-      //       "text": "Не робей перед врагом: лютейший враг человека - он сам."
-      //     }
-      //   },
-      //   {
-      //     "name": "test",
-      //     "last_message": {
-      //       "room": "test",
-      //       "created": "2020-09-26T08:49:13.379184978Z",
-      //       "sender": {
-      //         "username": "Аноним"
-      //       },
-      //       "text": "6"
-      //     }
-      //   }
-      // ]
+      while (!await this.initializeRooms());
+      this.stopLoading();
 
-      this.initializeRooms();
+      this.userName = this.$store.getters.USERNAME;
+      this.displayUserName = this.userName === null;
+      console.log('*** this.userName:', this.userName, typeof this.userName);
+      this.sendAllowed = true;
+      this.displaySendForm = true;
 
-      this.isSendAllowed = true;
+      setTimeout(async () => {
+        console.log('*** SCROLL START');
+        await window.scrollTo({
+          top: 10000,
+          behavior: 'smooth'
+        });
+        console.log('*** SCROLL END');
+
+      }, 500);
     },
     computed: {
       loadingMainDataIcon() {
@@ -263,9 +240,6 @@
         return this.isAnErrorWhileLoadingMainData
           ? 'An error occured'
           : 'Progress';
-      },
-      userIsAnonimous() {
-        return true; //user.getName() === null || user.getName() === undefined;
       },
 
       fieldIsRequired(value) {
@@ -287,84 +261,65 @@
       cancelRoomCreation() {
         this.isNewRoomCreation = false;
       },
-      initializeRooms() {
+      async initializeRooms() {
         if (this.rooms.length === 0) {
           console.log('*** We have no rooms!');
+          return true;
         }
         else {
           this.rooms = this.rooms.map((item) => item.name);
-          this.refreshRoom(this.rooms[this.rooms.length - 1]);
+          return await this.refreshRoom(this.rooms[this.rooms.length - 2]);
         }
       },
       /* *** */
-      refreshRoom(roomName) {
+      async refreshRoom(roomName) {
         this.currentRoom = roomName;
-        console.log('*** currentRoom:', this.currentRoom);
-        this.getMessages();
+        console.log('*** refreshRoom:', this.currentRoom);
+        return await this.getMessages();
       },
       async getSettings() {
-        this.state = HAVE_NOTHING;
-        this.isSheetVisible = false;
-
-        this.loadingMainDataState = 'Loading settings...';
-        this.isLoadingMainData = true;
-        this.isAnErrorWhileLoadingMainData = false;
+        const that = this;
+        let loaded = false;
+        this.startLoading('Loading settings...');
 
         if (EMULATE_SLOW_CONNECTION) {
           await this.sleep(1000);
         }
 
-        const that = this;
-
         await axios.get(`${apiUrl}/settings`)
           .then(response => {
             that.settings = response.data.result;
-            this.state = HAVE_SETTINGS;
+            loaded = true;
           })
-          .catch(() => {
-            this.sheetText = 'Cannot load the chat settings.';
-            this.isSheetVisible = true;
+          .catch(() => this.displayError('Cannot load the chat settings.'));
 
-            this.loadingMainDataState = 'Cannot load the chat settings.';
-            this.isLoadingMainData = false;
-            this.isAnErrorWhileLoadingMainData = true;
-        });
-
-        return this.state === HAVE_SETTINGS;
+        this.stopLoading();
+        return loaded;
       },
       retryLoading() {
         this.isSheetVisible = false;
         this.getSettings();
       },
       async getRooms() {
-        this.isSheetVisible = false;
-        this.loadingMainDataState = 'Loading rooms...';
-        this.isLoadingMainData = true;
-        this.isAnErrorWhileLoadingMainData = false;
+        const that = this;
+        let loaded = false;
+        this.startLoading('Loading rooms...');
 
         if (EMULATE_SLOW_CONNECTION) {
           await this.sleep(1000);
         }
 
-        const that = this;
-
         await axios.get(`${apiUrl}/rooms`)
           .then(response => {
             that.rooms = response.data.result;
             this.loadingMainDataState = null;
-            this.state = HAVE_ROOMS;
+            loaded = true;
           })
-          .catch(() => {
-            this.sheetText = 'Cannot get the rooms.';
-            this.isSheetVisible = true;
-            this.loadingMainDataState = 'Cannot load the rooms.';
-            this.isLoadingMainData = false;
-            this.isAnErrorWhileLoadingMainData = true;
-          });
+          .catch(() => this.displayError('Cannot get the rooms.'));
 
-        return this.state === HAVE_ROOMS;
+        this.stopLoading();
+        return loaded;
       },
-
       cancelNewRoomCreation() {
         alert('cancelNewRoomCreation');
       },
@@ -381,46 +336,49 @@
           return;
         }
         this.userErrorMessage = null;
-        this.$store.commit('SET_USERNAME', userName)
+        this.$store.commit('SET_USERNAME', userName);
 
-/*
-        if (user.getName() !== name) {
-          user.setName(name);
-        }
-/*
-        this.userNameMessage = 'Invalid username.';
-        /*
-        this.userNameMessage = 'Invalid username.';
-        /*
-        let name = this.userName === null ? '' : this.userName.trim();
-        console.log('N:', name, typeof name, name.length);
-
-        if (name.length === 0 || name.length > this.settings.max_username_length) {
-          this.userNameMessage = 'Invalid username.';
-          return;
-        }
-        this.userNameMessage = null;
-
-        if (this.userName)
-        console.log('*** userName:', this.userName);
-        */
         this.sendDisabled = true;
         setTimeout(() => {
           this.sendDisabled = false;
         }, 1000);
       },
       async getMessages() {
+        let loaded = false;
+        this.startLoading('Loading messages...');
+
         if (EMULATE_SLOW_CONNECTION) {
           await this.sleep(1000);
         }
 
-        axios
+        await axios
           .get(`${apiUrl}/rooms/${this.currentRoom}/history`)
           .then(response => {
             console.log('*** RESP:', response);
             this.messages = response.data.result;
+            loaded = true;
           })
-          .catch(err => console.log('*** ERROR:', err));
+          .catch(() => this.displayError('Cannot load messages.'));
+
+        this.stopLoading();
+        return loaded;
+      },
+      // main loading
+      startLoading(msg) {
+        this.isSheetVisible = false;
+        this.loadingMainDataState = msg;
+        this.isLoadingMainData = true;
+        this.isAnErrorWhileLoadingMainData = false;
+      },
+      stopLoading() {
+        this.loadingMainDataState = null;
+      },
+      displayError(msg) {
+        this.sheetText = msg;
+        this.isSheetVisible = true;
+        this.loadingMainDataState = msg;
+        this.isLoadingMainData = false;
+        this.isAnErrorWhileLoadingMainData = true;
       },
       sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));

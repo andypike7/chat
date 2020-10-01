@@ -8,7 +8,7 @@ import '@mdi/font/css/materialdesignicons.css'
 
 Vue.config.productionTip = false
 
-// Vue.use(Vuex);
+export const bus = new Vue();
 
 new Vue({
   vuetify,
